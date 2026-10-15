@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import type { User, Channel } from '../types';
 
 interface ChannelListProps {
@@ -10,8 +10,6 @@ interface ChannelListProps {
   onSearchChange: (query: string) => void;
   onSelectChannel: (id: string) => void;
   onSelectDM: (userId: string) => void;
-  onOpenSettings: () => void;
-  onOpenModal: () => void;
   isMobileOpen: boolean;
   onCloseMobile: () => void;
   currentUser: User;
@@ -26,8 +24,6 @@ export const ChannelList: React.FC<ChannelListProps> = ({
   onSearchChange,
   onSelectChannel,
   onSelectDM,
-  onOpenSettings,
-  onOpenModal,
   isMobileOpen,
   onCloseMobile,
   currentUser,
@@ -69,7 +65,6 @@ export const ChannelList: React.FC<ChannelListProps> = ({
           />
         </div>
         <button
-          onClick={onOpenModal}
           className="w-9 h-9 rounded-full bg-white border border-[#EAEAEA] flex items-center justify-center hover:border-[#0A0A0A] transition-colors"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0A0A0A" strokeWidth="1.5">
@@ -85,7 +80,7 @@ export const ChannelList: React.FC<ChannelListProps> = ({
         <div className="px-4 py-5">
           <div className="flex items-center justify-between mb-3">
             <span className="text-[11px] font-semibold tracking-widest uppercase text-[#71717A]">
-              Online — {onlineUsers.length}
+              Online â€” {onlineUsers.length}
             </span>
             <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
           </div>
@@ -200,7 +195,6 @@ export const ChannelList: React.FC<ChannelListProps> = ({
           </div>
         </div>
         <button
-          onClick={onOpenSettings}
           className="w-7 h-7 rounded-full bg-[#F6F6F7] border border-[#EAEAEA] flex items-center justify-center hover:bg-white"
         >
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">

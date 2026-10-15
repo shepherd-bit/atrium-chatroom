@@ -10,13 +10,6 @@ export interface User {
   localTime: string;
 }
 
-export interface Reaction {
-  emoji: string;
-  count: number;
-  users: string[];
-  me: boolean;
-}
-
 export interface Message {
   id: string;
   channelId?: string;
@@ -24,7 +17,6 @@ export interface Message {
   text: string;
   time: string;
   timestamp: number;
-  reactions: Reaction[];
   threadCount?: number;
   threadAvatars?: string[];
   isDM?: boolean;

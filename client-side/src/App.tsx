@@ -3,7 +3,6 @@ import { SidebarNav } from './components/SidebarNav';
 import { ChannelList } from './components/ChannelList';
 import { ChatWindow } from './components/ChatWindow';
 import { DetailsPanel } from './components/DetailsPanel';
-import { SupabaseModal } from './components/SupabaseModal';
 import { mockUsers, mockChannels, mockMessages, mockThreads } from './data/mockData';
 import type { Message, User } from './types';
 
@@ -22,7 +21,6 @@ export function App() {
 
   const [selectedThread, setSelectedThread] = useState<Message | null>(null);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [isSupabaseModalOpen, setIsSupabaseModalOpen] = useState(false);
 
   const [inputValue, setInputValue] = useState('');
 
@@ -53,56 +51,12 @@ export function App() {
       text: inputValue.trim(),
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       timestamp: Date.now(),
-      reactions: [],
       isDM: !!activeDMId,
       dmWith: activeDMId || undefined,
     };
 
     setMessages((prev) => [...prev, newMessage]);
     setInputValue('');
-  };
-
-  const handleReaction = (messageId: string, emoji: string) => {
-    setMessages((prev) =>
-      prev.map((msg) => {
-        if (msg.id !== messageId) return msg;
-
-        const existingReactionIndex = msg.reactions.findIndex((r) => r.emoji === emoji);
-        const updatedReactions = [...msg.reactions];
-
-        if (existingReactionIndex > -1) {
-          const r = updatedReactions[existingReactionIndex];
-          if (r.me) {
-            // Remove reaction
-            if (r.count === 1) {
-              updatedReactions.splice(existingReactionIndex, 1);
-            } else {
-              updatedReactions[existingReactionIndex] = {
-                ...r,
-                count: r.count - 1,
-                me: false,
-              };
-            }
-          } else {
-            // Add reaction
-            updatedReactions[existingReactionIndex] = {
-              ...r,
-              count: r.count + 1,
-              me: true,
-            };
-          }
-        } else {
-          updatedReactions.push({
-            emoji,
-            count: 1,
-            users: [currentUser.id],
-            me: true,
-          });
-        }
-
-        return { ...msg, reactions: updatedReactions };
-      })
-    );
   };
 
   const handleOpenThread = (message: Message) => {
@@ -126,7 +80,6 @@ export function App() {
       text: replyText.trim(),
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       timestamp: Date.now(),
-      reactions: [],
     };
 
     setThreads((prev) => ({
@@ -158,7 +111,6 @@ export function App() {
           setActiveDMId(null);
           setSelectedThread(null);
         }}
-        onOpenSettings={() => setIsSupabaseModalOpen(true)}
         avatarUrl={currentUser.avatar_url}
       />
 
@@ -177,8 +129,6 @@ export function App() {
         onSelectDM={(userId) => {
           setActiveDMId(userId);
         }}
-        onOpenSettings={() => setIsSupabaseModalOpen(true)}
-        onOpenModal={() => setIsSupabaseModalOpen(true)}
         isMobileOpen={isMobileSidebarOpen}
         onCloseMobile={() => setIsMobileSidebarOpen(false)}
         currentUser={currentUser}
@@ -191,7 +141,6 @@ export function App() {
         messages={currentMessages}
         currentUserId={currentUser.id}
         getUser={getUser}
-        onReaction={handleReaction}
         onOpenThread={handleOpenThread}
         onSelectUser={handleSelectUser}
         onToggleRightPanel={() => setIsRightPanelOpen((prev) => !prev)}
@@ -214,9 +163,6 @@ export function App() {
         onSendReply={handleSendReply}
         currentUserId={currentUser.id}
       />
-
-      {/* Supabase Schema Modal */}
-      <SupabaseModal isOpen={isSupabaseModalOpen} onClose={() => setIsSupabaseModalOpen(false)} />
     </div>
   );
 }

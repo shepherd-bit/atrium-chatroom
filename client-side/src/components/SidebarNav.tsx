@@ -3,14 +3,12 @@ import React from 'react';
 interface SidebarNavProps {
   activeChannel: string;
   onSelectChannel: (id: string) => void;
-  onOpenSettings: () => void;
   avatarUrl: string;
 }
 
 export const SidebarNav: React.FC<SidebarNavProps> = ({
   activeChannel,
   onSelectChannel,
-  onOpenSettings,
   avatarUrl,
 }) => {
   return (
@@ -39,7 +37,6 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
 
       <div className="flex flex-col items-center gap-5">
         <button
-          onClick={onOpenSettings}
           className="w-8 h-8 rounded-full bg-[#F6F6F7] border border-[#EAEAEA] flex items-center justify-center hover:bg-white transition-colors"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0A0A0A" strokeWidth="1.5">

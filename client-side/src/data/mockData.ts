@@ -27,10 +27,6 @@ export const mockMessages: Message[] = [
     text: 'Shipped the new Atrium layout explorations — took the feedback from yesterday and stripped everything down to pure type and space. No shadows, no color. Thoughts?',
     time: '9:12 AM',
     timestamp: Date.now() - 18000000,
-    reactions: [
-      { emoji: '✨', count: 3, users: ['1', '4', '7'], me: false },
-      { emoji: '🔥', count: 2, users: ['3', '6'], me: false }
-    ],
     threadCount: 3,
     threadAvatars: ['https://i.pravatar.cc/150?img=11', 'https://i.pravatar.cc/150?img=12', 'https://i.pravatar.cc/150?img=32']
   },
@@ -40,8 +36,7 @@ export const mockMessages: Message[] = [
     userId: '4',
     text: 'This feels right. The 8px grid is finally consistent. Love how the message rows breathe — Linear-level density but with our own voice.',
     time: '9:14 AM',
-    timestamp: Date.now() - 18000000 + 120000,
-    reactions: []
+    timestamp: Date.now() - 18000000 + 120000
   },
   {
     id: 'm3',
@@ -49,10 +44,7 @@ export const mockMessages: Message[] = [
     userId: '3',
     text: 'Pushed the realtime presence layer. Green dot is now via Supabase presence. Check profiles.avatar_url field — we’re loading real images everywhere, no more initials fallback.',
     time: '9:18 AM',
-    timestamp: Date.now() - 18000000 + 300000,
-    reactions: [
-      { emoji: '🙏', count: 1, users: ['2'], me: true }
-    ]
+    timestamp: Date.now() - 18000000 + 300000
   },
   {
     id: 'm4',
@@ -61,7 +53,6 @@ export const mockMessages: Message[] = [
     text: 'Quick decision needed: should we keep the right detail panel collapsible or docked? I’m leaning collapsed by default — focus on the thread, reveal context only on demand. Minimal > maximal.',
     time: '10:02 AM',
     timestamp: Date.now() - 14400000,
-    reactions: [],
     threadCount: 5,
     threadAvatars: ['https://i.pravatar.cc/150?img=5', 'https://i.pravatar.cc/150?img=32', 'https://i.pravatar.cc/150?img=23']
   },
@@ -71,10 +62,7 @@ export const mockMessages: Message[] = [
     userId: '7',
     text: 'Collapsed. The Atrium concept is about air. Three thin columns, nothing airtight feels heavy. The detail panel should slide, not push.',
     time: '10:04 AM',
-    timestamp: Date.now() - 14400000 + 120000,
-    reactions: [
-      { emoji: '😍', count: 4, users: ['1', '2', '4', '8'], me: false }
-    ]
+    timestamp: Date.now() - 14400000 + 120000
   },
   {
     id: 'm6',
@@ -82,8 +70,7 @@ export const mockMessages: Message[] = [
     userId: '6',
     text: 'Ops update: All-hands moved to 3pm. Will share doc link in #product. No blockers on my side.',
     time: '11:30 AM',
-    timestamp: Date.now() - 7200000,
-    reactions: []
+    timestamp: Date.now() - 7200000
   },
   {
     id: 'm7',
@@ -91,8 +78,7 @@ export const mockMessages: Message[] = [
     userId: '2',
     text: 'Noted. I’ll prep the prototype link. We’re so close to something that feels inevitable — like it always existed.',
     time: '11:32 AM',
-    timestamp: Date.now() - 7200000 + 60000,
-    reactions: []
+    timestamp: Date.now() - 7200000 + 60000
   },
   {
     id: 'm8',
@@ -100,8 +86,7 @@ export const mockMessages: Message[] = [
     userId: '8',
     text: 'Drafted Q1 narrative — link in canvas. Would love eyes from design before EOD.',
     time: '9:00 AM',
-    timestamp: Date.now() - 21600000,
-    reactions: []
+    timestamp: Date.now() - 21600000
   },
   {
     id: 'm9',
@@ -109,8 +94,7 @@ export const mockMessages: Message[] = [
     userId: '4',
     text: 'Tokens PR is up. 12px, 16px, 9999px only. Killed all 8px radius outliers.',
     time: '8:45 AM',
-    timestamp: Date.now() - 25200000,
-    reactions: []
+    timestamp: Date.now() - 25200000
   },
   {
     id: 'm10',
@@ -118,24 +102,21 @@ export const mockMessages: Message[] = [
     userId: '5',
     text: 'DB migration complete. avatar_url is now non-nullable on profiles. Added index.',
     time: '7:30 AM',
-    timestamp: Date.now() - 28800000,
-    reactions: [
-      { emoji: '🔥', count: 2, users: ['3', '1'], me: false }
-    ]
+    timestamp: Date.now() - 28800000
   }
 ];
 
 export const mockThreads: Record<string, Message[]> = {
   m1: [
-    { id: 't1', channelId: 'deep-work', userId: '1', text: 'The spacing on hover actions — 1px border, 12px radius, so clean.', time: '9:13 AM', timestamp: Date.now(), reactions: [] },
-    { id: 't2', channelId: 'deep-work', userId: '4', text: 'Inter everywhere really ties it. No serif sneaking in.', time: '9:13 AM', timestamp: Date.now(), reactions: [] },
-    { id: 't3', channelId: 'deep-work', userId: '3', text: 'Agreed. Shipping this as V2.', time: '9:15 AM', timestamp: Date.now(), reactions: [] }
+    { id: 't1', channelId: 'deep-work', userId: '1', text: 'The spacing on hover actions — 1px border, 12px radius, so clean.', time: '9:13 AM', timestamp: Date.now() },
+    { id: 't2', channelId: 'deep-work', userId: '4', text: 'Inter everywhere really ties it. No serif sneaking in.', time: '9:13 AM', timestamp: Date.now() },
+    { id: 't3', channelId: 'deep-work', userId: '3', text: 'Agreed. Shipping this as V2.', time: '9:15 AM', timestamp: Date.now() }
   ],
   m4: [
-    { id: 't4', channelId: 'deep-work', userId: '2', text: 'Collapsed default yes. Maybe remember last state locally?', time: '10:03 AM', timestamp: Date.now(), reactions: [] },
-    { id: 't5', channelId: 'deep-work', userId: '5', text: 'I like collapsed. Feels more focused.', time: '10:03 AM', timestamp: Date.now(), reactions: [] },
-    { id: 't6', channelId: 'deep-work', userId: '1', text: 'Done. Implementing slide with transform.', time: '10:05 AM', timestamp: Date.now(), reactions: [] },
-    { id: 't7', channelId: 'deep-work', userId: '6', text: 'Plus works better on mobile.', time: '10:06 AM', timestamp: Date.now(), reactions: [] },
-    { id: 't8', channelId: 'deep-work', userId: '7', text: 'Exactly.', time: '10:07 AM', timestamp: Date.now(), reactions: [] }
+    { id: 't4', channelId: 'deep-work', userId: '2', text: 'Collapsed default yes. Maybe remember last state locally?', time: '10:03 AM', timestamp: Date.now() },
+    { id: 't5', channelId: 'deep-work', userId: '5', text: 'I like collapsed. Feels more focused.', time: '10:03 AM', timestamp: Date.now() },
+    { id: 't6', channelId: 'deep-work', userId: '1', text: 'Done. Implementing slide with transform.', time: '10:05 AM', timestamp: Date.now() },
+    { id: 't7', channelId: 'deep-work', userId: '6', text: 'Plus works better on mobile.', time: '10:06 AM', timestamp: Date.now() },
+    { id: 't8', channelId: 'deep-work', userId: '7', text: 'Exactly.', time: '10:07 AM', timestamp: Date.now() }
   ]
 };

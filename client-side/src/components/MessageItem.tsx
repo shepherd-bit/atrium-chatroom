@@ -5,7 +5,6 @@ interface MessageItemProps {
   message: Message;
   getUser: (userId: string) => User;
   currentUserId: string;
-  onReaction: (messageId: string, emoji: string) => void;
   onOpenThread: (message: Message) => void;
   onSelectUser: (user: User) => void;
 }
@@ -14,7 +13,6 @@ export const MessageItem: React.FC<MessageItemProps> = ({
   message,
   getUser,
   currentUserId,
-  onReaction,
   onOpenThread,
   onSelectUser,
 }) => {
@@ -49,24 +47,6 @@ export const MessageItem: React.FC<MessageItemProps> = ({
           {message.text}
         </div>
 
-        {/* Reactions */}
-        {message.reactions && message.reactions.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mt-2.5">
-            {message.reactions.map((r) => (
-              <button
-                key={r.emoji}
-                onClick={() => onReaction(message.id, r.emoji)}
-                className={`h-6 px-2 rounded-full border text-[12px] flex items-center gap-1 transition-all ${
-                  r.me ? 'bg-[#0A0A0A] text-white border-[#0A0A0A]' : 'bg-white border-[#EAEAEA] hover:border-[#0A0A0A]'
-                }`}
-              >
-                <span>{r.emoji}</span>
-                <span className="font-medium">{r.count}</span>
-              </button>
-            ))}
-          </div>
-        )}
-
         {/* Thread Trigger */}
         {message.threadCount ? (
           <button onClick={() => onOpenThread(message)} className="mt-2.5 flex items-center gap-2 group/thread">
@@ -82,22 +62,12 @@ export const MessageItem: React.FC<MessageItemProps> = ({
         ) : null}
       </div>
 
-      {/* Floating Reaction & Action Bar */}
+      {/* Floating Action Bar */}
       <div
         className={`absolute right-2 -top-3 flex items-center gap-0.5 p-1 rounded-full bg-white border border-[#EAEAEA] shadow-[0_4px_16px_rgba(0,0,0,0.06)] transition-all ${
           isHovered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1 pointer-events-none'
         }`}
       >
-        {['😍', '🔥', '🙏', '✨'].map((emoji) => (
-          <button
-            key={emoji}
-            onClick={() => onReaction(message.id, emoji)}
-            className="w-7 h-7 rounded-full hover:bg-[#F6F6F7] flex items-center justify-center text-[14px]"
-          >
-            {emoji}
-          </button>
-        ))}
-        <div className="w-[1px] h-4 bg-[#EAEAEA] mx-1" />
         <button
           onClick={() => onOpenThread(message)}
           className="w-7 h-7 rounded-full hover:bg-[#F6F6F7] flex items-center justify-center"

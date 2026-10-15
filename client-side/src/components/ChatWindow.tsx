@@ -9,7 +9,6 @@ interface ChatWindowProps {
   messages: Message[];
   currentUserId: string;
   getUser: (userId: string) => User;
-  onReaction: (messageId: string, emoji: string) => void;
   onOpenThread: (message: Message) => void;
   onSelectUser: (user: User) => void;
   onToggleRightPanel: () => void;
@@ -26,7 +25,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   messages,
   currentUserId,
   getUser,
-  onReaction,
   onOpenThread,
   onSelectUser,
   onToggleRightPanel,
@@ -127,7 +125,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                 message={m}
                 getUser={getUser}
                 currentUserId={currentUserId}
-                onReaction={onReaction}
                 onOpenThread={onOpenThread}
                 onSelectUser={onSelectUser}
               />
