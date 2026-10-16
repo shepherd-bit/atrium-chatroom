@@ -5,6 +5,7 @@ import { ChatWindow } from './components/ChatWindow';
 import { DetailsPanel } from './components/DetailsPanel';
 import { AuthScreen } from './components/AuthScreen';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { pb } from './lib/pocketbase';
 import {
   getAuthErrorMessage,
   getThread,
@@ -26,6 +27,7 @@ import type {
   ChannelMemberRecord,
   ChannelRecordWithCreator,
   Message,
+  MessageRecord,
   User,
 } from './types';
 
@@ -251,14 +253,20 @@ function ChatApp() {
   // no `isDM`/`dmWith` to reconcile — a DM is just a channel with type 'dm'.
   const currentMessages = messages.filter((m) => m.channelId === activeChannelId);
 
-  // Sending is one path for channels and DMs alike: the message becomes a
-  // row in the channel, and the record we get back is what we render.
+  // Sending is one path for channels and DMs alike: write the row straight
+  // to `messages` with the signed-in account as author, then append the
+  // record PocketBase hands back (it carries the server-set id/created).
   const handleSendMessage = async () => {
     const text = inputValue.trim();
-    if (!text || !activeChannelId) return;
+    const author = pb.authStore.record?.id;
+    if (!text || !activeChannelId || !author) return;
 
     try {
-      const record = await sendMessage({ channel: activeChannelId, text });
+      const record = await pb.collection('messages').create<MessageRecord>({
+        channel: activeChannelId,
+        author,
+        text,
+      });
       setMessages((prev) => [...prev, toUiMessage(record)]);
       setInputValue('');
     } catch (error) {
