@@ -12,11 +12,11 @@ export const mockUsers: User[] = [
 ];
 
 export const mockChannels: Channel[] = [
-  { id: 'deep-work', name: 'deep-work', desc: 'Focused work, no distractions. Async by default.', members: ['1','2','3','4','5','6'], unread: 3 },
-  { id: 'product', name: 'product', desc: 'Roadmap, specs, and launches', members: ['1','2','4','8'], unread: 1 },
-  { id: 'design', name: 'design', desc: 'Design reviews and system updates', members: ['2','4','7'] },
-  { id: 'engineering', name: 'engineering', desc: 'Deploys, incidents, and architecture', members: ['3','5','1'], unread: 2 },
-  { id: 'watercooler', name: 'watercooler', desc: 'Random, memes, off-topic', members: ['1','2','3','4','5','6','7','8'] }
+  { id: 'deep-work', type: 'public', name: 'deep-work', desc: 'Focused work, no distractions. Async by default.', members: ['1','2','3','4','5','6'], unread: 3 },
+  { id: 'product', type: 'public', name: 'product', desc: 'Roadmap, specs, and launches', members: ['1','2','4','8'], unread: 1 },
+  { id: 'design', type: 'public', name: 'design', desc: 'Design reviews and system updates', members: ['2','4','7'] },
+  { id: 'engineering', type: 'public', name: 'engineering', desc: 'Deploys, incidents, and architecture', members: ['3','5','1'], unread: 2 },
+  { id: 'watercooler', type: 'public', name: 'watercooler', desc: 'Random, memes, off-topic', members: ['1','2','3','4','5','6','7','8'] }
 ];
 
 export const mockMessages: Message[] = [

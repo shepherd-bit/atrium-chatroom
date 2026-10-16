@@ -2,14 +2,21 @@
 import type { User, Channel } from '../types';
 
 interface ChannelListProps {
+  /** The real roster (`users` collection) — used to start new DMs. */
   users: User[];
+  /** Non-DM channels. Direct messages live in `dmChannels`, not here. */
   channels: Channel[];
+  /** Your `channels.type = 'dm'` records — one per conversation, two members each. */
+  dmChannels: Channel[];
+  /** The other participant per DM channel id — what the row is labelled with. */
+  dmPartners: Record<string, User>;
+  /** Channel id of the open conversation (a channel *or* a DM — same id space). */
   activeChannel: string;
-  activeDM: string | null;
   searchQuery: string;
   onSearchChange: (query: string) => void;
   onSelectChannel: (id: string) => void;
-  onSelectDM: (userId: string) => void;
+  /** Start (or resume) the DM channel with this user. */
+  onStartDM: (userId: string) => void;
   isMobileOpen: boolean;
   onCloseMobile: () => void;
   currentUser: User;
@@ -18,20 +25,26 @@ interface ChannelListProps {
 export const ChannelList: React.FC<ChannelListProps> = ({
   users,
   channels,
+  dmChannels,
+  dmPartners,
   activeChannel,
-  activeDM,
   searchQuery,
   onSearchChange,
   onSelectChannel,
-  onSelectDM,
+  onStartDM,
   isMobileOpen,
   onCloseMobile,
   currentUser,
 }) => {
-  const onlineUsers = users.filter((u) => u.status === 'online');
+  // Online people come first so the row reads the same whether or not the
+  // presence collection has been populated yet.
+  const people = [...users].sort((a, b) => Number(b.status === 'online') - Number(a.status === 'online'));
   const filteredChannels = channels.filter((c) => c.name.toLowerCase().includes(searchQuery.toLowerCase()));
-  const filteredUsers = users.filter(
+  const filteredPeople = people.filter(
     (u) => u.name.toLowerCase().includes(searchQuery.toLowerCase()) || u.role.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+  const filteredDMs = dmChannels.filter((c) =>
+    (dmPartners[c.id]?.name ?? '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -76,23 +89,27 @@ export const ChannelList: React.FC<ChannelListProps> = ({
 
       {/* Sidebar Scrollable Content */}
       <div className="flex-1 overflow-y-auto no-scrollbar">
-        {/* Online Status Header */}
+        {/* People Row — tapping someone opens (or creates) your DM channel with them */}
         <div className="px-4 py-5">
           <div className="flex items-center justify-between mb-3">
             <span className="text-[11px] font-semibold tracking-widest uppercase text-[#71717A]">
-              Online â€” {onlineUsers.length}
+              People — {filteredPeople.length}
             </span>
             <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
           </div>
           <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1">
-            {onlineUsers.map((u) => (
-              <button key={u.id} onClick={() => onSelectDM(u.id)} className="relative shrink-0 group">
+            {filteredPeople.map((u) => (
+              <button key={u.id} onClick={() => onStartDM(u.id)} className="relative shrink-0 group" title={`Message ${u.name}`}>
                 <img
                   src={u.avatar_url}
                   alt={u.name}
                   className="w-9 h-9 rounded-full object-cover ring-1 ring-[#EAEAEA] group-hover:ring-[#0A0A0A] transition-all"
                 />
-                <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-[#10B981] border-2 border-white" />
+                <span
+                  className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${
+                    u.status === 'online' ? 'bg-[#10B981]' : 'bg-[#EAEAEA]'
+                  }`}
+                />
               </button>
             ))}
           </div>
@@ -112,7 +129,7 @@ export const ChannelList: React.FC<ChannelListProps> = ({
           </div>
           <div className="space-y-0.5">
             {filteredChannels.map((c) => {
-              const isSelected = activeChannel === c.id && !activeDM;
+              const isSelected = activeChannel === c.id;
               return (
                 <button
                   key={c.id}
@@ -140,19 +157,22 @@ export const ChannelList: React.FC<ChannelListProps> = ({
 
         <div className="h-[1px] bg-[#EAEAEA] mx-4" />
 
-        {/* Direct Messages Section */}
+        {/* Direct Messages Section — each row is one `channels.type = 'dm'` record,
+            labelled with its other participant (the channel itself has no name). */}
         <div className="px-3 py-4">
           <div className="px-2 mb-2">
             <span className="text-[11px] font-semibold tracking-widest uppercase text-[#71717A]">Direct messages</span>
           </div>
           <div className="space-y-0.5">
-            {filteredUsers.map((u) => {
-              const isSelected = activeDM === u.id;
+            {filteredDMs.map((c) => {
+              const partner = dmPartners[c.id];
+              const isSelected = activeChannel === c.id;
+              const name = partner?.name ?? 'Direct message';
               return (
                 <button
-                  key={u.id}
+                  key={c.id}
                   onClick={() => {
-                    onSelectDM(u.id);
+                    onSelectChannel(c.id);
                     onCloseMobile();
                   }}
                   className={`w-full text-left px-2.5 py-2.5 rounded-[12px] flex gap-2.5 transition-all ${
@@ -160,22 +180,28 @@ export const ChannelList: React.FC<ChannelListProps> = ({
                   }`}
                 >
                   <div className="relative shrink-0">
-                    <img src={u.avatar_url} alt={u.name} className="w-8 h-8 rounded-full object-cover" />
+                    <img
+                      src={partner?.avatar_url ?? `https://i.pravatar.cc/150?u=${c.id}`}
+                      alt={name}
+                      className="w-8 h-8 rounded-full object-cover"
+                    />
                     <span
                       className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 ${
                         isSelected ? 'border-[#0A0A0A]' : 'border-white'
-                      } ${u.status === 'online' ? 'bg-[#10B981]' : 'bg-[#EAEAEA]'}`}
+                      } ${partner?.status === 'online' ? 'bg-[#10B981]' : 'bg-[#EAEAEA]'}`}
                     />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
                       <span className={`text-[13px] font-medium truncate ${isSelected ? 'text-white' : 'text-[#0A0A0A]'}`}>
-                        {u.name}
+                        {name}
                       </span>
-                      <span className={`text-[11px] shrink-0 ${isSelected ? 'text-white/60' : 'text-[#71717A]'}`}>{u.time}</span>
+                      <span className={`text-[11px] shrink-0 ${isSelected ? 'text-white/60' : 'text-[#71717A]'}`}>
+                        {partner?.time}
+                      </span>
                     </div>
                     <div className={`text-[12px] leading-[16px] truncate mt-0.5 ${isSelected ? 'text-white/70' : 'text-[#71717A]'}`}>
-                      {u.statusText}
+                      {partner?.statusText ?? 'No messages yet'}
                     </div>
                   </div>
                 </button>

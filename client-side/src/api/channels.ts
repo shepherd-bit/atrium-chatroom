@@ -67,6 +67,11 @@ export async function deleteChannel(id: string): Promise<boolean> {
   return pb.collection('channels').delete(id);
 }
 
+// One in-flight open per pair. Auto-cancellation is off (see lib/pocketbase),
+// so a double-click would otherwise run find → create twice and leave two DM
+// channels between the same two people.
+const pendingDMOpens = new Map<string, Promise<ChannelRecord>>();
+
 /**
  * Open (or find) the DM channel with another user.
  *
@@ -78,20 +83,33 @@ export async function openDM(otherUserId: string): Promise<ChannelRecord> {
   const me = requireUserId();
   if (otherUserId === me) throw new Error('You cannot start a direct message with yourself.');
 
-  const existing = await findDMChannel(me, otherUserId);
-  if (existing) return existing;
+  const key = `${me}:${otherUserId}`;
+  const inFlight = pendingDMOpens.get(key);
+  if (inFlight) return inFlight;
 
-  const channel = await pb.collection('channels').create<ChannelRecord>({
-    name: '',
-    description: '',
-    type: 'dm',
-    created_by: me,
-  });
-  await Promise.all([
-    ensureMembership(channel.id, me, 'member'),
-    ensureMembership(channel.id, otherUserId, 'member'),
-  ]);
-  return channel;
+  const open = (async () => {
+    const existing = await findDMChannel(me, otherUserId);
+    if (existing) return existing;
+
+    const channel = await pb.collection('channels').create<ChannelRecord>({
+      name: '',
+      description: '',
+      type: 'dm',
+      created_by: me,
+    });
+    await Promise.all([
+      ensureMembership(channel.id, me, 'member'),
+      ensureMembership(channel.id, otherUserId, 'member'),
+    ]);
+    return channel;
+  })();
+
+  pendingDMOpens.set(key, open);
+  try {
+    return await open;
+  } finally {
+    pendingDMOpens.delete(key);
+  }
 }
 
 /**

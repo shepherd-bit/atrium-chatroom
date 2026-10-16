@@ -38,10 +38,13 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages.length, activeChannel?.id, activeDMUser?.id]);
+  }, [messages.length, activeChannel?.id]);
 
-  const title = activeDMUser ? activeDMUser.name : `#${activeChannel?.name}`;
-  const subtitle = activeDMUser ? activeDMUser.statusText : activeChannel?.desc;
+  // A DM is a channel like any other — `type` is the only difference, and the
+  // label/avatar come from the other participant (`activeDMUser`).
+  const isDM = activeChannel?.type === 'dm';
+  const title = isDM ? (activeDMUser?.name ?? 'Direct message') : `#${activeChannel?.name}`;
+  const subtitle = isDM ? (activeDMUser?.statusText ?? 'No messages yet') : activeChannel?.desc;
 
   return (
     <div className="flex-1 flex flex-col bg-white min-w-0">
@@ -59,8 +62,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <span className="text-[15px] font-semibold tracking-tight">{title}</span>
-              {activeDMUser ? (
-                <span className="w-2 h-2 rounded-full bg-[#10B981]" />
+              {isDM ? (
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    activeDMUser?.status === 'online' ? 'bg-[#10B981]' : 'bg-[#EAEAEA]'
+                  }`}
+                />
               ) : (
                 <span className="px-1.5 py-0.5 rounded-full bg-[#F6F6F7] border border-[#EAEAEA] text-[10px] font-medium">
                   PRIVATE
@@ -72,7 +79,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          {!activeDMUser && activeChannel && (
+          {!isDM && activeChannel && (
             <div className="hidden md:flex items-center -space-x-2">
               {activeChannel.members.slice(0, 4).map((userId) => {
                 const member = getUser(userId);
@@ -158,7 +165,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         value={inputValue}
         onChange={onInputChange}
         onSend={onSendMessage}
-        placeholder={activeDMUser ? `Message ${activeDMUser.name}` : `Message #${activeChannel?.name}`}
+        placeholder={isDM ? (activeDMUser ? `Message ${activeDMUser.name}` : 'Message') : `Message #${activeChannel?.name}`}
       />
     </div>
   );

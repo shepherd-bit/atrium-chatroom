@@ -11,10 +11,10 @@
  *                  author    → userId
  *                  text      → text
  *                  created   → time ("9:12 AM") + timestamp (ms epoch)
- *                  expand    → isDM (when expand.channel was requested)
  *
  *   ChannelRecord  name      → name
  *                  description → desc
+ *                  type      → type (DMs are channels with type 'dm')
  *                  (members/unread come from the membership API, see below)
  *
  *   UserRecord     name      → name + full_name (falls back to email)
@@ -44,38 +44,23 @@ import type {
 
 /**
  * Data that lives outside the `messages` record itself — thread badges come
- * from `getThreadCounts()`/`getThread()`, and DM flags from how the caller
- * loaded the channel.
+ * from `getThreadCounts()`/`getThread()`.
+ *
+ * There is deliberately no DM flag here: a DM message is just a message in a
+ * channel whose `type` is `'dm'`, so `channelId` already says everything.
  */
 export interface UiMessageExtras {
   /** From `getThreadCounts(channelId)` — replies per parent message. */
   threadCount?: number;
   /** Avatar URLs of thread repliers, e.g. from `getThread(message.id)`. */
   threadAvatars?: string[];
-  /** Force the DM flag; defaults to `expand.channel?.type === 'dm'`. */
-  isDM?: boolean;
-  /** The other participant's user id (DM views filter on this). */
-  dmWith?: string;
-}
-
-/** What of `record.expand` this mapper understands (both relations optional). */
-interface MessageExpand {
-  author?: Partial<UserRecord>;
-  channel?: Partial<ChannelRecord>;
-}
-
-function readExpand(record: MessageRecord): MessageExpand {
-  const expand: unknown = record.expand;
-  // `expand` is only present when the query passed `expand: '...'`, and the
-  // SDK types it loosely — narrow once, here, instead of at every call site.
-  return expand && typeof expand === 'object' ? (expand as MessageExpand) : {};
 }
 
 /**
  * Map a `messages` record to the `Message` the chat feed renders.
  *
- * `expand.author` is deliberately unused: the UI resolves authors through
- * `getUser(message.userId)`, so author data only needs to reach `userId`.
+ * `expand` is unused on purpose: the UI resolves authors through
+ * `getUser(message.userId)` and conversations through `Channel.type`.
  *
  * Note: because of the `extras` argument, wrap this in an arrow when using
  * it with `.map()` — `list.map(toUiMessage)` would pass the array index as
@@ -83,7 +68,6 @@ function readExpand(record: MessageRecord): MessageExpand {
  */
 export function toUiMessage(record: MessageRecord, extras: UiMessageExtras = {}): Message {
   const created = parseISO(record.created);
-  const isDM = extras.isDM ?? readExpand(record).channel?.type === 'dm';
 
   return {
     id: record.id,
@@ -94,8 +78,6 @@ export function toUiMessage(record: MessageRecord, extras: UiMessageExtras = {})
     timestamp: created.getTime(),
     threadCount: extras.threadCount,
     threadAvatars: extras.threadAvatars,
-    isDM: isDM || undefined,
-    dmWith: extras.dmWith,
   };
 }
 
@@ -114,6 +96,7 @@ export interface UiChannelExtras {
 export function toUiChannel(record: ChannelRecord, extras: UiChannelExtras = {}): Channel {
   return {
     id: record.id,
+    type: record.type,
     name: record.name,
     desc: record.description,
     members: extras.members ?? [],

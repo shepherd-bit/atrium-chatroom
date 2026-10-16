@@ -27,21 +27,27 @@ export interface User {
 
 export interface Message {
   id: string;
-  channelId?: string;
+  /**
+   * The conversation this message belongs to. There is no separate DM flag:
+   * a DM is a channel (`channels.type = 'dm'`), so filtering by `channelId`
+   * is the whole story for both channels and DMs.
+   */
+  channelId: string;
   userId: string;
   text: string;
   time: string;
   timestamp: number;
   threadCount?: number;
   threadAvatars?: string[];
-  isDM?: boolean;
-  dmWith?: string;
 }
 
 export interface Channel {
   id: string;
+  /** Mirrors `channels.type` — `'dm'` rows are the direct messages. */
+  type: ChannelType;
   name: string;
   desc: string;
+  /** users.id of every `channel_members` row (DMs have exactly two). */
   members: string[];
   unread?: number;
 }

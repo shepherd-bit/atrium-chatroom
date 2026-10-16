@@ -12,6 +12,14 @@ export const PB_URL = import.meta.env.VITE_PB_URL ?? 'http://127.0.0.1:8090';
 // Components and contexts go through the API layer ('../api') instead.
 export const pb = new PocketBase(PB_URL);
 
+// Auto-cancellation keys requests by `method + path` only — the query string
+// is not part of the key — so any two in-flight reads of the same collection
+// (the two `channel_members` lookups in `findDMChannel`, `listMessages` next
+// to `getThreadCounts`, the unread-count batch in membership.ts…) abort each
+// other with "The request was aborted". These are different reads, not a
+// stale retry of the same one, so turn the whole mechanism off.
+pb.autoCancellation(false);
+
 // The SDK types auth records loosely (RecordModel). The users collection is
 // declared in server-side/pb_migrations, so we narrow it to our known shape
 // in one place rather than casting at every call site.
