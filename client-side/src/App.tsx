@@ -79,7 +79,7 @@ function ChatApp() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
-  const [isRightPanelOpen, setIsRightPanelOpen] = useState(false);
+  const [isRightPanelOpen, setIsRightPanelOpen] = useState(true);
   /** The create/browse sheet behind the sidebar's `+` and compose pencil. */
   const [isChannelModalOpen, setIsChannelModalOpen] = useState(false);
 
