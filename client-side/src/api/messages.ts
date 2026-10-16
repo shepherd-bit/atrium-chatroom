@@ -45,6 +45,21 @@ export async function listMessages(
   return [...items].reverse();
 }
 
+/**
+ * Every top-level message the signed-in user can read, in one page-free
+ * `getFullList()` sorted oldest first — the whole feed for the initial load.
+ *
+ * The `messages` list rule already scopes the result to channels you're a
+ * member of, so nothing leaks; use `listMessages(channelId)` to page further
+ * back once this window is exhausted.
+ */
+export async function listAllMessages(): Promise<MessageRecord[]> {
+  return pb.collection('messages').getFullList<MessageRecord>({
+    filter: 'parent = null',
+    sort: 'created',
+  });
+}
+
 /** Post a message (or a thread reply when `parent` is set). */
 export async function sendMessage(input: {
   channel: string;
@@ -83,12 +98,16 @@ export async function getThread(parentId: string): Promise<MessageRecord[]> {
 }
 
 /**
- * Reply count per parent message in a channel — keyed by message id, so the
- * feed can show thread badges without N round trips.
+ * Reply count per parent message — keyed by message id, so the feed can show
+ * thread badges without N round trips. Pass `channelId` to count within one
+ * channel, or omit it to count across every readable channel.
  */
-export async function getThreadCounts(channelId: string): Promise<Record<string, number>> {
+export async function getThreadCounts(channelId?: string): Promise<Record<string, number>> {
+  const filter = ['parent != null'];
+  if (channelId) filter.unshift(`channel = "${channelId}"`);
+
   const replies = await pb.collection('messages').getFullList<Pick<MessageRecord, 'parent'>>({
-    filter: `channel = "${channelId}" && parent != null`,
+    filter: filter.join(' && '),
     fields: 'parent',
   });
 

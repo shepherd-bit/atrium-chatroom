@@ -44,7 +44,25 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   // label/avatar come from the other participant (`activeDMUser`).
   const isDM = activeChannel?.type === 'dm';
   const title = isDM ? (activeDMUser?.name ?? 'Direct message') : `#${activeChannel?.name}`;
-  const subtitle = isDM ? (activeDMUser?.statusText ?? 'No messages yet') : activeChannel?.desc;
+  // Channels carry a description; the creator (from `expand=created_by`)
+  // trails it so you know who opened the room.
+  const creator = !isDM && activeChannel?.createdBy ? `Created by ${activeChannel.createdBy.name}` : null;
+  const subtitle = isDM
+    ? (activeDMUser?.statusText ?? 'No messages yet')
+    : [activeChannel?.desc, creator].filter(Boolean).join(' • ');
+
+  // No conversation selected (a brand-new account with no channels yet) —
+  // say so instead of rendering a header for a channel that doesn't exist.
+  if (!activeChannel) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center bg-white min-w-0 gap-1.5 px-6 text-center">
+        <span className="text-[14px] font-medium">No channels yet</span>
+        <span className="text-[13px] text-[#71717A]">
+          Channels you create or join will show up here.
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 flex flex-col bg-white min-w-0">
@@ -136,24 +154,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                 onSelectUser={onSelectUser}
               />
             ))}
-          </div>
-
-          {/* Typing Indicator */}
-          <div className="mt-4 flex items-center gap-3 px-2">
-            <div className="flex -space-x-1.5">
-              {['2', '4'].map((id) => {
-                const u = getUser(id);
-                return <img key={id} src={u.avatar_url} alt={u.name} className="w-6 h-6 rounded-full border-2 border-white object-cover" />;
-              })}
-            </div>
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#F6F6F7] border border-[#EAEAEA]">
-              <div className="flex gap-1">
-                <span className="w-1 h-1 rounded-full bg-[#71717A] animate-bounce [animation-delay:-0.3s]" />
-                <span className="w-1 h-1 rounded-full bg-[#71717A] animate-bounce [animation-delay:-0.15s]" />
-                <span className="w-1 h-1 rounded-full bg-[#71717A] animate-bounce" />
-              </div>
-              <span className="text-[12px] text-[#71717A]">Sage and June are typing</span>
-            </div>
           </div>
 
           <div ref={scrollRef} />

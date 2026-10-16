@@ -30,6 +30,22 @@ export async function listChannelMembers(channelId: string): Promise<ChannelMemb
 }
 
 /**
+ * Membership rows for a batch of channels in one query — what a sidebar
+ * needs to fill in every channel's roster (and each DM's two members)
+ * without an N+1 read per channel.
+ */
+export async function listMembersByChannels(
+  channelIds: string[]
+): Promise<ChannelMemberRecord[]> {
+  if (channelIds.length === 0) return [];
+  const channelFilter = channelIds.map((id) => `channel = "${id}"`).join(' || ');
+  return pb.collection('channel_members').getFullList<ChannelMemberRecord>({
+    filter: channelFilter,
+    sort: 'created',
+  });
+}
+
+/**
  * The membership row for one (channel, user) pair, or null when the user
  * isn't a member. Pass only `channelId` to check yourself.
  */

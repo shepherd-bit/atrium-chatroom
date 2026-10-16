@@ -50,6 +50,8 @@ export interface Channel {
   /** users.id of every `channel_members` row (DMs have exactly two). */
   members: string[];
   unread?: number;
+  /** Who created the channel, from `expand=created_by` (DMs don't show it). */
+  createdBy?: User;
 }
 
 // ---------------------------------------------------------------------------
@@ -84,6 +86,14 @@ export interface ChannelRecord {
   updated: string;
   [key: string]: unknown;
 }
+
+/**
+ * A `channels` record fetched with `expand: 'created_by'` — the creator comes
+ * back inlined instead of as an id. Use with the generic `listChannels<T>()`.
+ */
+export type ChannelRecordWithCreator = ChannelRecord & {
+  expand?: { created_by?: UserRecord };
+};
 
 export interface ChannelMemberRecord {
   id: string;

@@ -1,6 +1,9 @@
 import React from 'react';
+import type { Channel } from '../types';
 
 interface SidebarNavProps {
+  /** The channels the signed-in user can see — the nav jumps between them. */
+  channels: Channel[];
   activeChannel: string;
   onSelectChannel: (id: string) => void;
   avatarUrl: string;
@@ -8,6 +11,7 @@ interface SidebarNavProps {
 }
 
 export const SidebarNav: React.FC<SidebarNavProps> = ({
+  channels,
   activeChannel,
   onSelectChannel,
   avatarUrl,
@@ -21,12 +25,13 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
         </div>
         <div className="w-8 h-[1px] bg-[#EAEAEA]" />
         <div className="flex flex-col gap-3">
-          {['deep-work', 'product', 'design', 'engineering', 'watercooler'].map((id) => (
+          {channels.slice(0, 5).map((channel) => (
             <button
-              key={id}
-              onClick={() => onSelectChannel(id)}
+              key={channel.id}
+              onClick={() => onSelectChannel(channel.id)}
+              title={`#${channel.name}`}
               className={`w-9 h-9 rounded-[12px] flex items-center justify-center text-[13px] font-medium transition-all border ${
-                activeChannel === id
+                activeChannel === channel.id
                   ? 'bg-[#0A0A0A] text-white border-[#0A0A0A] shadow-sm'
                   : 'bg-[#F6F6F7] text-[#71717A] border-[#EAEAEA] hover:bg-white hover:text-[#0A0A0A] hover:border-[#0A0A0A]'
               }`}

@@ -90,6 +90,8 @@ export interface UiChannelExtras {
   members?: string[];
   /** Unread badge from `getUnreadCounts(...)` / `getUnreadCount(...)`. */
   unread?: number;
+  /** The creator, from the channel record's `expand=created_by`. */
+  createdBy?: User;
 }
 
 /** Map a `channels` record to the `Channel` the sidebar renders. */
@@ -101,6 +103,7 @@ export function toUiChannel(record: ChannelRecord, extras: UiChannelExtras = {})
     desc: record.description,
     members: extras.members ?? [],
     unread: extras.unread,
+    createdBy: extras.createdBy,
   };
 }
 

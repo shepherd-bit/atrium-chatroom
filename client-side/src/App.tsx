@@ -6,10 +6,13 @@ import { DetailsPanel } from './components/DetailsPanel';
 import { AuthScreen } from './components/AuthScreen';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import {
+  getAuthErrorMessage,
+  getThread,
   getThreadCounts,
+  listAllMessages,
   listChannelMembers,
   listChannels,
-  listMessages,
+  listMembersByChannels,
   listPresences,
   listUsers,
   openDM,
@@ -18,8 +21,13 @@ import {
   toUiMessage,
   toUiUser,
 } from './api';
-import { mockUsers, mockChannels, mockMessages, mockThreads } from './data/mockData';
-import type { Channel, Message, User } from './types';
+import type {
+  Channel,
+  ChannelMemberRecord,
+  ChannelRecordWithCreator,
+  Message,
+  User,
+} from './types';
 
 /**
  * The two `channel_members` rows behind a DM channel → the member ids the
@@ -37,21 +45,30 @@ async function resolveDM(channelId: string, roster: User[], myId: string) {
 function ChatApp() {
   const { user, isRestoring, logout } = useAuth();
 
-  // The people roster and your DM channels come from PocketBase. The regular
-  // channels, their messages, and threads are still seeded from mock data
-  // until those slices get wired up — mock ids and real ids never collide, so
-  // the two live side by side in `messages` without special-casing.
+  // The whole workspace — roster, channels, and message history — comes from
+  // PocketBase, loaded in one pass per account below. Nothing is seeded from
+  // mock data anymore, so these start empty and are filled (or left empty)
+  // by that load.
   const [users, setUsers] = useState<User[]>([]);
-  const [channels] = useState(mockChannels);
-  const [messages, setMessages] = useState<Message[]>(mockMessages);
-  const [threads, setThreads] = useState<Record<string, Message[]>>(mockThreads);
+  const [channels, setChannels] = useState<Channel[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
+  /** Thread replies per parent message id, fetched the first time a thread is opened. */
+  const [threads, setThreads] = useState<Record<string, Message[]>>({});
   /** Your `channels.type = 'dm'` records — one per conversation, two members each. */
   const [dmChannels, setDmChannels] = useState<Channel[]>([]);
   /** The other participant per DM channel id (the channel itself has no name). */
   const [dmPartners, setDmPartners] = useState<Record<string, User>>({});
 
+  // Load lifecycle: `loadedFor` is the user id the state above belongs to,
+  // so switching accounts immediately shows the splash again instead of the
+  // previous user's channels while the new load runs.
+  const [loadedFor, setLoadedFor] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
+
   // One id space: a DM is selected exactly like a channel — its channel id.
-  const [activeChannelId, setActiveChannelId] = useState<string>('deep-work');
+  // Seeded by the load below (the first channel we can see).
+  const [activeChannelId, setActiveChannelId] = useState<string>('');
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -62,11 +79,10 @@ function ChatApp() {
 
   const [inputValue, setInputValue] = useState('');
 
-  const activeIsDM = dmChannels.some((c) => c.id === activeChannelId);
-
-  // Load the roster and the DM channels we're a member of once we know who's
-  // signed in. Switching accounts cancels the in-flight load via the cleanup,
-  // so the previous user's DMs can never land on the new user's screen.
+  // Load the roster, every channel we may see, and the whole message history
+  // once we know who's signed in. Switching accounts — or retrying after a
+  // failure — cancels the in-flight load via the cleanup, so an earlier
+  // user's conversations can never land on the new user's screen.
   useEffect(() => {
     if (!user) return;
     const userId = user.id;
@@ -74,81 +90,139 @@ function ChatApp() {
 
     (async () => {
       try {
-        const [records, presences, dmRecords] = await Promise.all([
-          listUsers(),
-          listPresences(),
-          listChannels({ type: 'dm' }),
-        ]);
+        const [userRecords, presenceRecords, channelRecords, messageRecords, threadCounts] =
+          await Promise.all([
+            listUsers(),
+            listPresences(),
+            // `expand=created_by` inlines the creator record, so the channel
+            // header can name them without a second lookup per channel.
+            listChannels<ChannelRecordWithCreator>({ sort: 'name', expand: 'created_by' }),
+            // Top-level messages, oldest first — the order the feed renders in.
+            listAllMessages(),
+            // Reply counts for the thread badges, across every channel at once.
+            getThreadCounts(),
+          ]);
 
-        const presenceByUser = new Map(presences.map((p) => [p.user, p]));
-        const roster = records.map((record) =>
+        // The channel ids are known now, so every roster (member counts, the
+        // two people behind each DM) comes from one membership query.
+        const memberRows = await listMembersByChannels(channelRecords.map((c) => c.id));
+        if (cancelled) return;
+
+        const presenceByUser = new Map(presenceRecords.map((row) => [row.user, row]));
+        const roster = userRecords.map((record) =>
           toUiUser(record, { presence: presenceByUser.get(record.id) ?? null })
         );
 
-        // Each DM needs its membership rows read to know who the other side is.
-        const resolved = await Promise.all(
-          dmRecords.map(async (record) => {
-            const { members, partner } = await resolveDM(record.id, roster, userId);
-            return { channel: toUiChannel(record, { members }), partner };
-          })
-        );
-
-        if (cancelled) return;
-        const partners: Record<string, User> = {};
-        for (const entry of resolved) {
-          if (entry.partner) partners[entry.channel.id] = entry.partner;
+        const rowsByChannel = new Map<string, ChannelMemberRecord[]>();
+        for (const row of memberRows) {
+          const rows = rowsByChannel.get(row.channel);
+          if (rows) rows.push(row);
+          else rowsByChannel.set(row.channel, [row]);
         }
+
+        const workspaceChannels: Channel[] = [];
+        const dms: Channel[] = [];
+        const partners: Record<string, User> = {};
+
+        for (const record of channelRecords) {
+          const members = (rowsByChannel.get(record.id) ?? []).map((row) => row.user);
+          const creator = record.expand?.created_by;
+          const channel = toUiChannel(record, {
+            members,
+            createdBy: creator
+              ? toUiUser(creator, { presence: presenceByUser.get(creator.id) ?? null })
+              : undefined,
+          });
+
+          if (channel.type !== 'dm') {
+            workspaceChannels.push(channel);
+            continue;
+          }
+
+          // A DM channel has no name — the sidebar labels it with the other
+          // participant, which is whichever member isn't you.
+          dms.push(channel);
+          const partner = roster.find((u) => u.id === members.find((id) => id !== userId));
+          if (partner) partners[channel.id] = partner;
+        }
+
         setUsers(roster);
-        setDmChannels(resolved.map((entry) => entry.channel));
+        setChannels(workspaceChannels);
+        setDmChannels(dms);
         setDmPartners(partners);
+        setMessages(
+          messageRecords.map((record) =>
+            toUiMessage(record, { threadCount: threadCounts[record.id] })
+          )
+        );
+        setThreads({});
+        // Keep the open conversation when it survived the reload; otherwise
+        // land on the first channel we can see.
+        setActiveChannelId((current) =>
+          current &&
+          (workspaceChannels.some((c) => c.id === current) || dms.some((c) => c.id === current))
+            ? current
+            : (workspaceChannels[0]?.id ?? dms[0]?.id ?? '')
+        );
+        setLoadError(null);
+        setLoadedFor(userId);
       } catch (error) {
         if (cancelled) return;
         // Nothing loaded — don't leave an earlier account's conversations
         // sitting in the sidebar.
         setUsers([]);
+        setChannels([]);
         setDmChannels([]);
         setDmPartners({});
-        console.error('Could not load your conversations', error);
+        setMessages([]);
+        setThreads({});
+        setLoadedFor(null);
+        setLoadError(getAuthErrorMessage(error));
+        console.error('Could not load your workspace', error);
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [user, reloadToken]);
 
-  // DM history lives in PocketBase — load it whenever a DM conversation is
-  // opened, replacing whatever page we had loaded for it before. Channel
-  // messages are still the mock seed, so they're skipped here.
-  useEffect(() => {
-    if (!activeChannelId || !activeIsDM) return;
-    const channelId = activeChannelId;
-    let cancelled = false;
-
-    (async () => {
-      const [records, counts] = await Promise.all([
-        listMessages(channelId),
-        getThreadCounts(channelId),
-      ]);
-      if (cancelled) return;
-      setMessages((prev) => [
-        ...prev.filter((m) => m.channelId !== channelId),
-        ...records.map((record) => toUiMessage(record, { threadCount: counts[record.id] })),
-      ]);
-    })().catch((error) => console.error('Could not load the conversation', error));
-
-    return () => {
-      cancelled = true;
-    };
-  }, [activeChannelId, activeIsDM]);
-
-  // Splash while the saved token is being restored/validated — otherwise
-  // we'd flash the login screen at returning users.
-  if (isRestoring) {
+  // Splash while the saved token is being restored/validated, and again for
+  // each workspace load — otherwise we'd flash the login screen at returning
+  // users, or an empty shell at signed-in ones.
+  if (isRestoring || (user && loadedFor !== user.id && !loadError)) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-white">
         <div className="w-8 h-8 rounded-[12px] bg-[#0A0A0A] flex items-center justify-center shadow-sm animate-pulse">
           <div className="w-2.5 h-2.5 rounded-full bg-white" />
+        </div>
+      </div>
+    );
+  }
+
+  // The load failed (server down, token revoked mid-load, network gone) —
+  // say so instead of rendering an empty workspace that looks like an
+  // account with no history.
+  if (loadError) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-white px-6">
+        <div className="max-w-[400px] text-center">
+          <div className="w-8 h-8 rounded-[12px] bg-[#0A0A0A] flex items-center justify-center shadow-sm mx-auto">
+            <div className="w-2.5 h-2.5 rounded-full bg-white" />
+          </div>
+          <h1 className="mt-4 text-[15px] font-semibold">Couldn't load your workspace</h1>
+          <p className="mt-1.5 text-[13px] leading-[18px] text-[#71717A]">{loadError}</p>
+          <button
+            onClick={() => {
+              // Clearing the error first swaps this screen for the splash
+              // while the retry runs, instead of showing a stale failure.
+              setLoadError(null);
+              setReloadToken((token) => token + 1);
+            }}
+            className="mt-5 h-9 px-4 rounded-full bg-[#0A0A0A] text-white text-[13px] font-medium hover:bg-black transition-colors"
+          >
+            Try again
+          </button>
         </div>
       </div>
     );
@@ -165,13 +239,9 @@ function ChatApp() {
   const currentUser = users.find((u) => u.id === user.id) ?? toUiUser(user);
 
   const getUser = (userId: string): User => {
-    return (
-      users.find((u) => u.id === userId) ??
-      // Mock channels still reference the seed roster; drop this fallback
-      // when channels/messages are migrated to real records.
-      mockUsers.find((u) => u.id === userId) ??
-      currentUser
-    );
+    // Anything the roster doesn't carry (a deleted account that still has
+    // messages) renders as the signed-in user rather than crashing.
+    return users.find((u) => u.id === userId) ?? currentUser;
   };
 
   const activeChannel = [...channels, ...dmChannels].find((c) => c.id === activeChannelId);
@@ -181,35 +251,20 @@ function ChatApp() {
   // no `isDM`/`dmWith` to reconcile — a DM is just a channel with type 'dm'.
   const currentMessages = messages.filter((m) => m.channelId === activeChannelId);
 
+  // Sending is one path for channels and DMs alike: the message becomes a
+  // row in the channel, and the record we get back is what we render.
   const handleSendMessage = async () => {
     const text = inputValue.trim();
-    if (!text) return;
+    if (!text || !activeChannelId) return;
 
-    if (activeIsDM) {
-      // Real send: the message becomes a row in this DM channel, and the
-      // record we get back is the message we render.
-      try {
-        const record = await sendMessage({ channel: activeChannelId, text });
-        setMessages((prev) => [...prev, toUiMessage(record)]);
-        setInputValue('');
-      } catch (error) {
-        // Keep the draft so a failed send isn't lost.
-        console.error('Message could not be sent', error);
-      }
-      return;
+    try {
+      const record = await sendMessage({ channel: activeChannelId, text });
+      setMessages((prev) => [...prev, toUiMessage(record)]);
+      setInputValue('');
+    } catch (error) {
+      // Keep the draft so a failed send isn't lost.
+      console.error('Message could not be sent', error);
     }
-
-    const newMessage: Message = {
-      id: `m-${Date.now()}`,
-      channelId: activeChannelId,
-      userId: currentUser.id,
-      text,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      timestamp: Date.now(),
-    };
-
-    setMessages((prev) => [...prev, newMessage]);
-    setInputValue('');
   };
 
   /**
@@ -241,10 +296,23 @@ function ChatApp() {
     }
   };
 
-  const handleOpenThread = (message: Message) => {
+  /**
+   * Open a message's thread: the panel shows the parent right away and the
+   * replies are pulled from PocketBase the first time the thread is opened
+   * (they're cached per thread id, so re-opening is instant).
+   */
+  const handleOpenThread = async (message: Message) => {
     setSelectedThread(message);
     setSelectedUser(null);
     setIsRightPanelOpen(true);
+
+    if (threads[message.id]) return;
+    try {
+      const records = await getThread(message.id);
+      setThreads((prev) => ({ ...prev, [message.id]: records.map((r) => toUiMessage(r)) }));
+    } catch (error) {
+      console.error('Could not load the thread replies', error);
+    }
   };
 
   const handleSelectUser = (user: User) => {
@@ -253,41 +321,46 @@ function ChatApp() {
     setIsRightPanelOpen(true);
   };
 
-  const handleSendReply = (replyText: string) => {
-    if (!selectedThread) return;
+  /** Post a reply: it becomes a `messages` row with `parent` set. */
+  const handleSendReply = async (replyText: string) => {
+    const text = replyText.trim();
+    const parent = selectedThread;
+    if (!parent || !text) return;
 
-    const newReply: Message = {
-      id: `t-${Date.now()}`,
-      channelId: selectedThread.channelId,
-      userId: currentUser.id,
-      text: replyText.trim(),
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      timestamp: Date.now(),
-    };
+    try {
+      const record = await sendMessage({ channel: parent.channelId, parent: parent.id, text });
+      const reply = toUiMessage(record);
 
-    setThreads((prev) => ({
-      ...prev,
-      [selectedThread.id]: [...(prev[selectedThread.id] || []), newReply],
-    }));
+      setThreads((prev) => ({
+        ...prev,
+        [parent.id]: [...(prev[parent.id] ?? []), reply],
+      }));
 
-    // Update thread count on parent message
-    setMessages((prev) =>
-      prev.map((m) =>
-        m.id === selectedThread.id
-          ? {
-              ...m,
-              threadCount: (m.threadCount || 0) + 1,
-              threadAvatars: Array.from(new Set([currentUser.avatar_url, ...(m.threadAvatars || [])])),
-            }
-          : m
-      )
-    );
+      // Update thread count on parent message
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === parent.id
+            ? {
+                ...m,
+                threadCount: (m.threadCount || 0) + 1,
+                threadAvatars: Array.from(
+                  new Set([currentUser.avatar_url, ...(m.threadAvatars || [])])
+                ),
+              }
+            : m
+        )
+      );
+    } catch (error) {
+      // The panel keeps the typed reply in its own state, so nothing is lost.
+      console.error('Reply could not be sent', error);
+    }
   };
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-white text-[#0A0A0A] font-sans">
       {/* Leftmost Icon Navigation Bar */}
       <SidebarNav
+        channels={channels}
         activeChannel={activeChannelId}
         onSelectChannel={(id) => {
           setActiveChannelId(id);

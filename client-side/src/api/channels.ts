@@ -15,6 +15,8 @@ export interface ListChannelsOptions {
   type?: ChannelType;
   /** PocketBase sort expression. Defaults to alphabetical by name. */
   sort?: string;
+  /** PocketBase expand expression, e.g. `'created_by'` to inline the creator. */
+  expand?: string;
 }
 
 export interface CreateChannelInput {
@@ -30,10 +32,21 @@ export interface UpdateChannelInput {
   type?: ChannelType;
 }
 
-export async function listChannels(options: ListChannelsOptions = {}): Promise<ChannelRecord[]> {
-  return pb.collection('channels').getFullList<ChannelRecord>({
+/**
+ * Every channel the signed-in user may see (public ones plus the private/DM
+ * channels they're a member of) in one page-free `getFullList()`.
+ *
+ * The type parameter carries extra `expand` data through to the caller —
+ * pass `ChannelRecordWithCreator` with `expand: 'created_by'` to read the
+ * creator record inline.
+ */
+export async function listChannels<T extends ChannelRecord = ChannelRecord>(
+  options: ListChannelsOptions = {}
+): Promise<T[]> {
+  return pb.collection('channels').getFullList<T>({
     sort: options.sort ?? 'name',
     filter: options.type ? `type = "${options.type}"` : undefined,
+    expand: options.expand,
   });
 }
 
