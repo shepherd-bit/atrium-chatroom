@@ -4,12 +4,14 @@ interface SidebarNavProps {
   activeChannel: string;
   onSelectChannel: (id: string) => void;
   avatarUrl: string;
+  onLogout: () => void;
 }
 
 export const SidebarNav: React.FC<SidebarNavProps> = ({
   activeChannel,
   onSelectChannel,
   avatarUrl,
+  onLogout,
 }) => {
   return (
     <div className="hidden md:flex w-[64px] shrink-0 flex-col items-center py-5 border-r border-[#EAEAEA] bg-[#FFFFFF] justify-between">
@@ -37,11 +39,14 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
 
       <div className="flex flex-col items-center gap-5">
         <button
-          className="w-8 h-8 rounded-full bg-[#F6F6F7] border border-[#EAEAEA] flex items-center justify-center hover:bg-white transition-colors"
+          onClick={onLogout}
+          title="Sign out"
+          className="w-8 h-8 rounded-full bg-[#F6F6F7] border border-[#EAEAEA] flex items-center justify-center hover:bg-white hover:border-[#0A0A0A] transition-colors"
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0A0A0A" strokeWidth="1.5">
-            <circle cx="12" cy="12" r="3" />
-            <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 009 15a1.65 1.65 0 00-1-1.51V13a2 2 0 012-2 2 2 0 012 2v.49c.26.15.5.34.71.55z" />
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0A0A0A" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
+            <polyline points="16 17 21 12 16 7" />
+            <line x1="21" y1="12" x2="9" y2="12" />
           </svg>
         </button>
         <img src={avatarUrl} className="w-8 h-8 rounded-full border border-[#EAEAEA] object-cover" alt="me" />

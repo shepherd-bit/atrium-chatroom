@@ -3,10 +3,35 @@ import { SidebarNav } from './components/SidebarNav';
 import { ChannelList } from './components/ChannelList';
 import { ChatWindow } from './components/ChatWindow';
 import { DetailsPanel } from './components/DetailsPanel';
+import { AuthScreen } from './components/AuthScreen';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { pb } from './lib/pocketbase';
 import { mockUsers, mockChannels, mockMessages, mockThreads } from './data/mockData';
-import type { Message, User } from './types';
+import type { Message, User, UserRecord } from './types';
 
-export function App() {
+// Bridge the PocketBase auth record into the User shape the UI components
+// were built against. Swap this (and the mock data below) as the rest of
+// the app gets wired to real collections.
+function toUiUser(record: UserRecord): User {
+  const now = new Date();
+  return {
+    id: record.id,
+    name: record.name || record.email,
+    full_name: record.name || record.email,
+    avatar_url: record.avatar
+      ? pb.files.getURL(record, record.avatar, { thumb: '100x100' })
+      : `https://i.pravatar.cc/150?u=${record.id}`,
+    role: record.title || 'Member',
+    status: 'online',
+    statusText: 'Available',
+    time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    localTime: `${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} local`,
+  };
+}
+
+function ChatApp() {
+  const { user, isRestoring, logout } = useAuth();
+
   const [users] = useState<User[]>(mockUsers);
   const [channels] = useState(mockChannels);
   const [messages, setMessages] = useState<Message[]>(mockMessages);
@@ -24,7 +49,26 @@ export function App() {
 
   const [inputValue, setInputValue] = useState('');
 
-  const currentUser = users[0]; // Alex Rivera
+  // Splash while the saved token is being restored/validated — otherwise
+  // we'd flash the login screen at returning users.
+  if (isRestoring) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-white">
+        <div className="w-8 h-8 rounded-[12px] bg-[#0A0A0A] flex items-center justify-center shadow-sm animate-pulse">
+          <div className="w-2.5 h-2.5 rounded-full bg-white" />
+        </div>
+      </div>
+    );
+  }
+
+  // Every collection rule requires @request.auth.id != '', so nothing can
+  // be read until the user is signed in.
+  if (!user) {
+    return <AuthScreen />;
+  }
+
+  // Signed in: build the UI's current user from the real auth record.
+  const currentUser = toUiUser(user);
 
   const getUser = (userId: string): User => {
     return users.find((u) => u.id === userId) || currentUser;
@@ -112,6 +156,7 @@ export function App() {
           setSelectedThread(null);
         }}
         avatarUrl={currentUser.avatar_url}
+        onLogout={logout}
       />
 
       {/* Channels & DMs Sidebar */}
@@ -164,6 +209,16 @@ export function App() {
         currentUserId={currentUser.id}
       />
     </div>
+  );
+}
+
+// AuthProvider lives at the root so the auth state survives navigation and
+// ChatApp (plus AuthScreen) can both consume it via useAuth().
+export function App() {
+  return (
+    <AuthProvider>
+      <ChatApp />
+    </AuthProvider>
   );
 }
 
