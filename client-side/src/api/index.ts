@@ -9,9 +9,11 @@
  *   users      — auth, profiles, avatar URLs
  *   membership — channel_members rows + unread counts
  *   presence   — online/away status rows
+ *   mappers    — record → UI shape translation (records → Message/Channel/User)
  */
 export * from './channels';
 export * from './messages';
 export * from './users';
 export * from './membership';
 export * from './presence';
+export * from './mappers';
