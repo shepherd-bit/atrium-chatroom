@@ -7,7 +7,13 @@ import {
   useState,
 } from 'react';
 import type { ReactNode } from 'react';
-import { pb, asUserRecord } from '../lib/pocketbase';
+import {
+  login as apiLogin,
+  logout as apiLogout,
+  onAuthChange,
+  register as apiRegister,
+  restoreSession,
+} from '../api';
 import type { UserRecord } from '../types';
 
 interface RegisterInput {
@@ -36,24 +42,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserRecord | null>(null);
   const [isRestoring, setIsRestoring] = useState(true);
 
-  // Restore a saved session. The SDK's LocalAuthStore already rehydrated
-  // token + record from localStorage when `pb` was constructed, so we only
-  // need to validate the token against the server and adopt the record.
+  // Restore a saved session. The API layer rehydrates token + record from
+  // localStorage, validates them against the server, and clears a revoked
+  // session — so a null result just means "signed out".
   useEffect(() => {
     let cancelled = false;
 
     const restore = async () => {
       try {
-        if (pb.authStore.isValid && pb.authStore.record) {
-          // authRefresh verifies the stored token is still good and writes
-          // the fresh record back to the authStore.
-          const { record } = await pb.collection('users').authRefresh();
-          if (!cancelled) setUser(asUserRecord(record));
-        }
-      } catch {
-        // Token revoked or user deleted — drop the stale session.
-        pb.authStore.clear();
-        if (!cancelled) setUser(null);
+        const record = await restoreSession();
+        if (!cancelled) setUser(record);
       } finally {
         if (!cancelled) setIsRestoring(false);
       }
@@ -67,35 +65,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Stay in sync with every authStore change (login, logout, or another
   // tab signing out — LocalAuthStore listens to cross-tab storage events).
-  useEffect(() => {
-    return pb.authStore.onChange((_token, record) => {
-      setUser(asUserRecord(record));
-    });
-  }, []);
+  useEffect(() => onAuthChange(setUser), []);
 
   const login = useCallback(async (email: string, password: string) => {
-    const { record } = await pb
-      .collection('users')
-      .authWithPassword(email, password);
-    setUser(asUserRecord(record));
+    setUser(await apiLogin(email, password));
   }, []);
 
-  const register = useCallback(async ({ name, email, password }: RegisterInput) => {
-    // users.createRule is "" in the migration, so registration is open.
-    await pb.collection('users').create({
-      name,
-      email,
-      password,
-      passwordConfirm: password,
-    });
-    // Creating a record doesn't sign you in — do it right after so the new
-    // account lands in the app with a valid token.
-    await login(email, password);
-  }, [login]);
+  const register = useCallback(
+    async ({ name, email, password }: RegisterInput) => {
+      // Registration creates the account and signs in with it in one call.
+      setUser(await apiRegister({ name, email, password }));
+    },
+    []
+  );
 
   const logout = useCallback(() => {
-    // Clearing the store fires onChange, which sets user to null.
-    pb.authStore.clear();
+    // Clearing the store fires onAuthChange, which sets user to null.
+    apiLogout();
   }, []);
 
   const value = useMemo(

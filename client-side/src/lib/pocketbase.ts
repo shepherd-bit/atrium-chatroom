@@ -7,6 +7,9 @@ export const PB_URL = import.meta.env.VITE_PB_URL ?? 'http://127.0.0.1:8090';
 // Single shared client instance. LocalAuthStore (the default) persists the
 // token + user record to localStorage and rehydrates them on construction,
 // so a page refresh restores the session without any extra plumbing.
+//
+// Import boundary: only the modules in src/api may import this client.
+// Components and contexts go through the API layer ('../api') instead.
 export const pb = new PocketBase(PB_URL);
 
 // The SDK types auth records loosely (RecordModel). The users collection is

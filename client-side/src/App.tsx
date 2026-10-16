@@ -5,7 +5,7 @@ import { ChatWindow } from './components/ChatWindow';
 import { DetailsPanel } from './components/DetailsPanel';
 import { AuthScreen } from './components/AuthScreen';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { pb } from './lib/pocketbase';
+import { avatarURL } from './api';
 import { mockUsers, mockChannels, mockMessages, mockThreads } from './data/mockData';
 import type { Message, User, UserRecord } from './types';
 
@@ -18,9 +18,7 @@ function toUiUser(record: UserRecord): User {
     id: record.id,
     name: record.name || record.email,
     full_name: record.name || record.email,
-    avatar_url: record.avatar
-      ? pb.files.getURL(record, record.avatar, { thumb: '100x100' })
-      : `https://i.pravatar.cc/150?u=${record.id}`,
+    avatar_url: avatarURL(record, { thumb: '100x100' }),
     role: record.title || 'Member',
     status: 'online',
     statusText: 'Available',
