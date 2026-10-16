@@ -17,6 +17,8 @@ interface ChannelListProps {
   onSelectChannel: (id: string) => void;
   /** Start (or resume) the DM channel with this user. */
   onStartDM: (userId: string) => void;
+  /** Open the create/browse sheet — the compose pencil and the `+` both do. */
+  onOpenCreateChannel: () => void;
   isMobileOpen: boolean;
   onCloseMobile: () => void;
   currentUser: User;
@@ -32,6 +34,7 @@ export const ChannelList: React.FC<ChannelListProps> = ({
   onSearchChange,
   onSelectChannel,
   onStartDM,
+  onOpenCreateChannel,
   isMobileOpen,
   onCloseMobile,
   currentUser,
@@ -78,6 +81,8 @@ export const ChannelList: React.FC<ChannelListProps> = ({
           />
         </div>
         <button
+          onClick={onOpenCreateChannel}
+          aria-label="Create a channel"
           className="w-9 h-9 rounded-full bg-white border border-[#EAEAEA] flex items-center justify-center hover:border-[#0A0A0A] transition-colors"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0A0A0A" strokeWidth="1.5">
@@ -121,7 +126,11 @@ export const ChannelList: React.FC<ChannelListProps> = ({
         <div className="px-3 py-4">
           <div className="px-2 mb-2 flex items-center justify-between">
             <span className="text-[11px] font-semibold tracking-widest uppercase text-[#71717A]">Channels</span>
-            <button className="text-[#71717A] hover:text-black">
+            <button
+              onClick={onOpenCreateChannel}
+              aria-label="Create a channel"
+              className="text-[#71717A] hover:text-black"
+            >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <path d="M12 5v14M5 12h14" />
               </svg>

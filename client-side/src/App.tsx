@@ -1,19 +1,23 @@
 import { useEffect, useState } from 'react';
 import { SidebarNav } from './components/SidebarNav';
 import { ChannelList } from './components/ChannelList';
+import { ChannelModal } from './components/ChannelModal';
 import { ChatWindow } from './components/ChatWindow';
 import { DetailsPanel } from './components/DetailsPanel';
 import { AuthScreen } from './components/AuthScreen';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { pb } from './lib/pocketbase';
 import {
+  createChannel,
   getAuthErrorMessage,
   getThread,
   getThreadCounts,
+  joinChannel,
   listAllMessages,
   listChannelMembers,
   listChannels,
   listMembersByChannels,
+  listMessages,
   listPresences,
   listUsers,
   openDM,
@@ -22,6 +26,7 @@ import {
   toUiMessage,
   toUiUser,
 } from './api';
+import type { CreateChannelInput } from './api';
 import type {
   Channel,
   ChannelMemberRecord,
@@ -75,6 +80,8 @@ function ChatApp() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isRightPanelOpen, setIsRightPanelOpen] = useState(false);
+  /** The create/browse sheet behind the sidebar's `+` and compose pencil. */
+  const [isChannelModalOpen, setIsChannelModalOpen] = useState(false);
 
   const [selectedThread, setSelectedThread] = useState<Message | null>(null);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -276,6 +283,50 @@ function ChatApp() {
   };
 
   /**
+   * Create a channel: the API seats you as owner (record + membership row
+   * land together), so it goes straight into the sidebar and becomes the
+   * open conversation. Throws on failure so the sheet can show the reason.
+   */
+  const handleCreateChannel = async (input: CreateChannelInput) => {
+    const record = await createChannel(input);
+    const channel = toUiChannel(record, {
+      members: [currentUser.id],
+      createdBy: currentUser,
+    });
+
+    setChannels((prev) => [...prev, channel].sort((a, b) => a.name.localeCompare(b.name)));
+    setActiveChannelId(channel.id);
+    setSelectedThread(null);
+    setSelectedUser(null);
+    setIsMobileSidebarOpen(false);
+    setIsChannelModalOpen(false);
+  };
+
+  /**
+   * Join a public channel, then pull its history — `messages` is readable
+   * only by members, so nothing in it existed for you until this row did.
+   */
+  const handleJoinChannel = async (channelId: string) => {
+    await joinChannel(channelId);
+
+    const records = await listMessages(channelId);
+    setMessages((prev) => {
+      const seen = new Set(prev.map((m) => m.id));
+      const additions = records.map((record) => toUiMessage(record)).filter((m) => !seen.has(m.id));
+      return [...prev, ...additions];
+    });
+    setChannels((prev) =>
+      prev.map((c) => (c.id === channelId ? { ...c, members: [...c.members, currentUser.id] } : c))
+    );
+
+    setActiveChannelId(channelId);
+    setSelectedThread(null);
+    setSelectedUser(null);
+    setIsMobileSidebarOpen(false);
+    setIsChannelModalOpen(false);
+  };
+
+  /**
    * Start (or resume) a DM: `openDM` hands back the shared `type = 'dm'`
    * channel, creating it plus both `channel_members` rows on first use. From
    * there it's selected like any other channel.
@@ -393,6 +444,7 @@ function ChatApp() {
           setSelectedUser(null);
         }}
         onStartDM={handleStartDM}
+        onOpenCreateChannel={() => setIsChannelModalOpen(true)}
         isMobileOpen={isMobileSidebarOpen}
         onCloseMobile={() => setIsMobileSidebarOpen(false)}
         currentUser={currentUser}
@@ -426,6 +478,16 @@ function ChatApp() {
         threadReplies={selectedThread ? threads[selectedThread.id] || [] : []}
         onSendReply={handleSendReply}
         currentUserId={currentUser.id}
+      />
+
+      {/* Create / join sheet — the sidebar `+` and compose pencil open it */}
+      <ChannelModal
+        isOpen={isChannelModalOpen}
+        onClose={() => setIsChannelModalOpen(false)}
+        channels={channels}
+        currentUser={currentUser}
+        onCreateChannel={handleCreateChannel}
+        onJoinChannel={handleJoinChannel}
       />
     </div>
   );
